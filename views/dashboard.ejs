@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Gmail App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .btn { 
+            background: #4285f4; 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        .email-list { max-height: 400px; overflow-y: auto; }
+        .email-item { 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+            cursor: pointer;
+        }
+        .email-item:hover { background: #f9f9f9; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input, .form-group textarea { 
+            width: 100%; 
+            padding: 8px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+        }
+        textarea { height: 150px; resize: vertical; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Gmail Dashboard</h1>
+            <p>Welcome, <%= user.name %> (<%= user.email %>)</p>
+            <a href="/" class="btn">Home</a>
+            <a href="/logout" class="btn" style="background: #dc3545;">Logout</a>
+        </div>
+
+        <div class="section">
+            <h2>Recent Emails</h2>
+            <button class="btn" onclick="loadEmails()">Load Emails</button>
+            <div id="emails" class="email-list"></div>
+        </div>
+
+        <div class="section">
+            <h2>Send Email</h2>
+            <form id="emailForm">
+                <div class="form-group">
+                    <label for="to">To:</label>
+                    <input type="email" id="to" name="to" required>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject:</label>
+                    <input type="text" id="subject" name="subject" required>
+                </div>
+                <div class="form-group">
+                    <label for="message">Message:</label>
+                    <textarea id="message" name="message" required></textarea>
+                </div>
+                <button type="submit" class="btn">Send Email</button>
+            </form>
+            <div id="sendResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>Conversation View</h2>
+            <div id="conversation"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadEmails() {
+            try {
+                const response = await fetch('/emails');
+                const data = await response.json();
+                
+                const emailsDiv = document.getElementById('emails');
+                emailsDiv.innerHTML = '';
+                
+                if (data.emails && data.emails.length > 0) {
+                    data.emails.forEach(email => {
+                        const emailDiv = document.createElement('div');
+                        emailDiv.className = 'email-item';
+                        emailDiv.innerHTML = `
+                            <strong>From:</strong> ${email.from}<br>
+                            <strong>Subject:</strong> ${email.subject}<br>
+                            <p>${email.snippet}</p>
+                            <button onclick="loadConversation('${email.id}')">View Conversation</button>
+                        `;
+                        emailsDiv.appendChild(emailDiv);
+                    });
+                } else {
+                    emailsDiv.innerHTML = '<p>No emails found.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading emails:', error);
+            }
+        }
+
+        async function loadConversation(messageId) {
+            try {
+                // Extract threadId from messageId (this is simplified)
+                const response = await fetch(`/conversations/${messageId}`);
+                const data = await response.json();
+                
+                const conversationDiv = document.getElementById('conversation');
+                conversationDiv.innerHTML = '<h3>Conversation</h3>';
+                
+                if (data.conversation && data.conversation.length > 0) {
+                    data.conversation.forEach(message => {
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'email-item';
+                        messageDiv.innerHTML = `
+                            <strong>From:</strong> ${message.from}<br>
+                            <strong>To:</strong> ${message.to}<br>
+                            <strong>Date:</strong> ${message.date}<br>
+                            <p>${message.snippet}</p>
+                            <hr>
+                        `;
+                        conversationDiv.appendChild(messageDiv);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading conversation:', error);
+            }
+        }
+
+        document.getElementById('emailForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                to: formData.get('to'),
+                subject: formData.get('subject'),
+                message: formData.get('message')
+            };
+
+            try {
+                const response = await fetch('/send-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                const resultDiv = document.getElementById('sendResult');
+                
+                if (result.success) {
+                    resultDiv.innerHTML = '<p style="color: green;">Email sent successfully!</p>';
+                    e.target.reset();
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">Error: ${result.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Error sending email:', error);
+                document.getElementById('sendResult').innerHTML = '<p style="color: red;">Failed to send email</p>';
+            }
+        });
+
+        // Load emails on page load
+        loadEmails();
+    </script>
+</body>
+</html>

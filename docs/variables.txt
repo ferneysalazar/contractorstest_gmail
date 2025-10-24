@@ -1,0 +1,6 @@
+Client Id:
+ct_gmail_api_cli
+
+Secret:
+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
+
